@@ -25,7 +25,6 @@ Follow these steps to set up and run the application locally:
 
 2.  **Clone the Repository (Optional):**
     *   If you have cloned a Git repository containing this application, navigate into the repository's root directory. Otherwise, ensure all project files are in a single main directory.
-    *   To clone the repository, use the command: `git clone https://github.com/your-username/your-repository-name.git` (replace with the actual URL).
 
 3.  **Create a Virtual Environment:**
     *   It's highly recommended to use a virtual environment to manage dependencies.
@@ -200,10 +199,6 @@ Once files are uploaded, the application will populate the analysis tabs:
     *   Confirm that you have started the application by running `python app/app.py` in your terminal.
     *   Check the terminal output for any error messages that might have occurred during startup.
     *   Ensure no other application is using port `8050` on your machine.
-*   **ImportError: attempted relative import with no known parent package**
-    *   This error can occur if Python doesn't recognize the `app` directory as a package when trying to run the application.
-    *   **Solution**: Ensure you are in the project's root directory (the one containing the `app` folder and this `README.md`) and run the application using the command: `python app/app.py`.
-    *   The `app.py` script includes a mechanism at the very beginning to adjust `sys.path`. This is intended to help Python find the necessary modules correctly. If the error persists, please double-check your current directory and that your Python environment is standard. Avoid running `python app.py` from *within* the `app` directory itself.
 
 ## Project Structure
 ```

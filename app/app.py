@@ -1,51 +1,17 @@
-import os
-import sys
-
-if __name__ == '__main__':
-    # This block ensures that when app.py is run directly (e.g., python app/app.py),
-    # Python can correctly resolve imports relative to the 'app' package.
-    # It adds the project's root directory (the parent directory of 'app') to sys.path.
-    # This allows Python's import system to find the 'app' package itself,
-    # and then subsequently resolve relative imports like '.src'.
-
-    # Path to the directory containing this script (app.py), e.g., /path/to/project/app
-    current_script_dir = os.path.dirname(os.path.abspath(__file__))
-
-    # Path to the project root directory, e.g., /path/to/project
-    project_root = os.path.dirname(current_script_dir)
-
-    # Add project_root to sys.path if it's not already there
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-
-    # Additionally, if app.py is run as the main script, __package__ might be None.
-    # For relative imports (`from .src ...`) to work reliably in this scenario,
-    # __package__ should ideally be set to the name of the package ('app').
-    # However, modifying __package__ directly can be tricky and might have side effects.
-    # The sys.path modification above is usually sufficient if the imports are
-    # structured as `from app.src import ...` or if relative imports work once `app` is findable.
-    # Given the existing imports are `from .src import ...`, ensuring `app`'s parent is in
-    # sys.path makes `app` discoverable as a top-level package.
-    # If `app.py` is then implicitly part of this discoverable `app` package,
-    # the relative imports should resolve.
-
-    # If issues persist, one might need to change imports from `from .src` to `from app.src`
-    # after this sys.path modification. For now, we keep `from .src` as per previous steps.
-
-import dash
-from dash import dcc, html, dash_table # Updated imports
+import dash # Keep this and other standard library imports
+from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 import base64
 import io
-import json
+import json # json was already here, ensure it stays
 import plotly.graph_objects as go
 import networkx as nx
 
-# Use absolute imports from the project root (which is added to sys.path)
-from app.src import data_parser as dp
-from app.src import network_builder as nb
-from app.src import network_analysis as na
+# Revert to relative imports for src modules
+from .src import data_parser as dp
+from .src import network_builder as nb
+from .src import network_analysis as na
 
 
 # Initialize the Dash application
@@ -148,8 +114,8 @@ def render_tab_content(tab_value):
     return html.Div([html.H3("Select a tab")])
 
 
-# --- Helper function for graph visualization ---
-def create_network_figure(graph, graph_title="Network Visualization", node_color='#ADD8E6', layout_seed=42, fixed_positions=None, edge_hover_texts_custom=None):
+# --- Helper function for graph visualization (reverted) ---
+def create_network_figure(graph, graph_title="Network Visualization", node_color='#ADD8E6', layout_seed=42, edge_hover_texts_custom=None):
     if not graph or not graph.nodes():
         fig = go.Figure()
         fig.update_layout(
@@ -162,10 +128,7 @@ def create_network_figure(graph, graph_title="Network Visualization", node_color
         )
         return fig
 
-    if fixed_positions:
-        pos = fixed_positions
-    else:
-        pos = nx.spring_layout(graph, seed=layout_seed, k=0.9)
+    pos = nx.spring_layout(graph, seed=layout_seed, k=0.9) # Always calculate layout
 
     edge_x_coords = []
     edge_y_coords = []
@@ -502,45 +465,26 @@ def update_comparison_tab(schema_contents, kpi_contents, schema_filename, kpi_fi
             error_message_list.append(html.P(f"Error processing KPI file ({kpi_filename}): {str(e)}"))
             kpi_graph = None
 
-    # Determine all nodes for consistent layout and rendering
+    # Determine node sets for summary (this part is fine)
     schema_nodes_set = set(schema_graph.nodes()) if schema_graph else set()
     kpi_nodes_set = set(kpi_graph.nodes()) if kpi_graph else set()
-    # all_nodes_list is not used for rendering in this reverted version.
 
-    common_node_positions = None
-    # Create common layout only if both graphs are valid and non-empty (or at least one is)
-    # The combined graph should include all nodes from both to ensure layout consistency for all.
-    temp_all_nodes_for_layout = list(schema_nodes_set | kpi_nodes_set)
+    # Common layout calculation is removed.
+    # common_node_positions = None # Ensure it's not used or defined from previous versions.
 
-    if temp_all_nodes_for_layout:
-        combined_layout_graph = nx.Graph()
-        combined_layout_graph.add_nodes_from(temp_all_nodes_for_layout)
-        if schema_graph:
-            valid_schema_edges = [(u,v) for u,v in schema_graph.edges() if u in temp_all_nodes_for_layout and v in temp_all_nodes_for_layout]
-            combined_layout_graph.add_edges_from(valid_schema_edges)
-        if kpi_graph:
-            valid_kpi_edges = [(u,v) for u,v in kpi_graph.edges() if u in temp_all_nodes_for_layout and v in temp_all_nodes_for_layout]
-            combined_layout_graph.add_edges_from(valid_kpi_edges)
-
-        common_node_positions = nx.spring_layout(combined_layout_graph, seed=42, k=0.9, iterations=50)
-
-    # Generate figures
+    # Generate figures - no fixed_positions passed
     schema_fig = create_network_figure(
         graph=schema_graph, graph_title="Schema Network (Comparison View)",
-        node_color='#ADD8E6', # Use single node_color
-        fixed_positions=common_node_positions,
+        node_color='#ADD8E6',
         edge_hover_texts_custom=schema_edge_hover_texts
-        # render_nodes_list removed
     )
     kpi_fig = create_network_figure(
         graph=kpi_graph, graph_title="KPI Network (Comparison View)",
-        node_color='#FFB6C1', # Use single node_color
-        fixed_positions=common_node_positions,
+        node_color='#FFB6C1',
         edge_hover_texts_custom=kpi_edge_hover_texts
-        # render_nodes_list removed
     )
 
-    # Update Summary Statistics
+    # Update Summary Statistics (this logic should be mostly the same as before)
     # This logic for summary_div_children remains largely the same,
     # as it depends on schema_nodes_set and kpi_nodes_set which are still calculated.
     if not error_message_list and (schema_graph is not None or kpi_graph is not None):
