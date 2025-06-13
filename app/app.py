@@ -1,3 +1,37 @@
+import os
+import sys
+
+if __name__ == '__main__':
+    # This block ensures that when app.py is run directly (e.g., python app/app.py),
+    # Python can correctly resolve imports relative to the 'app' package.
+    # It adds the project's root directory (the parent directory of 'app') to sys.path.
+    # This allows Python's import system to find the 'app' package itself,
+    # and then subsequently resolve relative imports like '.src'.
+
+    # Path to the directory containing this script (app.py), e.g., /path/to/project/app
+    current_script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Path to the project root directory, e.g., /path/to/project
+    project_root = os.path.dirname(current_script_dir)
+
+    # Add project_root to sys.path if it's not already there
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+    # Additionally, if app.py is run as the main script, __package__ might be None.
+    # For relative imports (`from .src ...`) to work reliably in this scenario,
+    # __package__ should ideally be set to the name of the package ('app').
+    # However, modifying __package__ directly can be tricky and might have side effects.
+    # The sys.path modification above is usually sufficient if the imports are
+    # structured as `from app.src import ...` or if relative imports work once `app` is findable.
+    # Given the existing imports are `from .src import ...`, ensuring `app`'s parent is in
+    # sys.path makes `app` discoverable as a top-level package.
+    # If `app.py` is then implicitly part of this discoverable `app` package,
+    # the relative imports should resolve.
+
+    # If issues persist, one might need to change imports from `from .src` to `from app.src`
+    # after this sys.path modification. For now, we keep `from .src` as per previous steps.
+
 import dash
 from dash import dcc, html, dash_table # Updated imports
 from dash.dependencies import Input, Output, State
