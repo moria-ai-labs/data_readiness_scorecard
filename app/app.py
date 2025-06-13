@@ -9,9 +9,9 @@ import plotly.graph_objects as go
 import networkx as nx
 
 # Revert to relative imports for src modules
-from .src import data_parser as dp
-from .src import network_builder as nb
-from .src import network_analysis as na
+from src import data_parser as dp
+from src import network_builder as nb
+from src import network_analysis as na
 
 
 # Initialize the Dash application
