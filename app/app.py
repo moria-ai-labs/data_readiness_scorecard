@@ -42,10 +42,10 @@ import json
 import plotly.graph_objects as go
 import networkx as nx
 
-# Use relative imports for submodules within the 'app' package
-from .src import data_parser as dp
-from .src import network_builder as nb
-from .src import network_analysis as na
+# Use absolute imports from the project root (which is added to sys.path)
+from app.src import data_parser as dp
+from app.src import network_builder as nb
+from app.src import network_analysis as na
 
 
 # Initialize the Dash application
@@ -149,7 +149,7 @@ def render_tab_content(tab_value):
 
 
 # --- Helper function for graph visualization ---
-def create_network_figure(graph, graph_title="Network Visualization", node_color='#ADD8E6', layout_seed=42, edge_hover_texts_custom=None):
+def create_network_figure(graph, graph_title="Network Visualization", node_color='#ADD8E6', layout_seed=42, edge_hover_texts_custom=None, fixed_positions=None):
     if not graph or not graph.nodes():
         fig = go.Figure()
         fig.update_layout(
@@ -162,7 +162,18 @@ def create_network_figure(graph, graph_title="Network Visualization", node_color
         )
         return fig
 
-    pos = nx.spring_layout(graph, seed=layout_seed, k=0.9)
+    if fixed_positions:
+        pos = fixed_positions
+        # Ensure all nodes in the current graph have positions if fixed_positions is used
+        # If a node from `graph` is not in `fixed_positions`, spring_layout might be needed for those
+        # For simplicity, assume fixed_positions contains all necessary nodes from `graph`
+        # Or, filter pos: pos = {k: v for k, v in fixed_positions.items() if k in graph.nodes()}
+        # However, spring_layout on a subgraph might differ too much.
+        # Best to ensure fixed_positions is comprehensive for the nodes in `graph`.
+        # Current logic iterates graph.nodes() and graph.edges(), so missing nodes in pos would error.
+        # Let's assume `fixed_positions` is correctly prepared by the caller for the given `graph`.
+    else:
+        pos = nx.spring_layout(graph, seed=layout_seed, k=0.9)
 
     edge_x = []
     edge_y = []
@@ -447,19 +458,18 @@ def update_kpi_analysis_tab(contents, filename):
 def update_comparison_tab(schema_contents, kpi_contents, schema_filename, kpi_filename):
     summary_div_children = [html.P("Please upload both Schema and KPI JSON files to see the comparison.", style={'textAlign': 'center'})]
     # Initialize with empty figures that might show "No data" title from create_network_figure
-    schema_fig = create_network_figure(None, "Schema Network")
-    kpi_fig = create_network_figure(None, "KPI Network")
-    error_message_list = [] # Collect errors for both files
+    schema_fig = create_network_figure(None, "Schema Network") # Default empty state
+    kpi_fig = create_network_figure(None, "KPI Network")       # Default empty state
+    error_message_list = []
+    schema_graph = None # Ensure it's defined in outer scope
+    kpi_graph = None    # Ensure it's defined in outer scope
 
-    # Prevent update if both files are not uploaded.
-    # Individual processing will handle if one is uploaded but is bad.
-    if schema_contents is None and kpi_contents is None:
-         # This initial message is fine, but if only one is uploaded, we want to show partial progress/error.
-         # So, let's remove PreventUpdate and handle states explicitly.
-         pass # Let it proceed to show the placeholder or individual errors
+
+    if not schema_contents and not kpi_contents:
+        # If neither file is present, keep the initial message and empty figures
+        return summary_div_children, schema_fig, kpi_fig, None
 
     # Process Schema Data
-    schema_graph = None
     if schema_contents:
         try:
             s_content_type, s_content_string = schema_contents.split(',')
@@ -469,21 +479,11 @@ def update_comparison_tab(schema_contents, kpi_contents, schema_filename, kpi_fi
             if not parsed_schema:
                 raise ValueError("Schema data could not be parsed or is empty.")
             schema_graph = nb.build_schema_network(parsed_schema)
-
-            schema_edge_hover_texts = []
-            if schema_graph.nodes(): # Check if graph has nodes before creating hover texts
-                for edge in schema_graph.edges(data=True):
-                    hover_text = f"Edge: {edge[0]} - {edge[1]}<br>"
-                    if 'shared_field' in edge[2]: hover_text += f"Shared Field: {edge[2]['shared_field']}<br>"
-                    if 'domain' in edge[2]: hover_text += f"Domain: {edge[2]['domain']}"
-                    schema_edge_hover_texts.extend([hover_text, hover_text, None])
-            schema_fig = create_network_figure(schema_graph, "Schema Network", '#ADD8E6', 42, schema_edge_hover_texts)
         except Exception as e:
             error_message_list.append(html.P(f"Error processing Schema file ({schema_filename}): {str(e)}"))
-            # schema_fig remains empty or "No data"
+            schema_graph = None # Ensure graph is None on error
 
     # Process KPI Data
-    kpi_graph = None
     if kpi_contents:
         try:
             k_content_type, k_content_string = kpi_contents.split(',')
@@ -493,21 +493,46 @@ def update_comparison_tab(schema_contents, kpi_contents, schema_filename, kpi_fi
             if not parsed_kpis:
                 raise ValueError("KPI data could not be parsed or is empty.")
             kpi_graph = nb.build_kpi_network(parsed_kpis)
-
-            kpi_edge_hover_texts = []
-            if kpi_graph.nodes(): # Check if graph has nodes
-                for edge in kpi_graph.edges(data=True):
-                    kpi_links = edge[2].get('kpi_links', [])
-                    hover_text = f"Edge: {edge[0]} - {edge[1]}<br>KPIs: {', '.join(kpi_links)}"
-                    kpi_edge_hover_texts.extend([hover_text, hover_text, None])
-            kpi_fig = create_network_figure(kpi_graph, "KPI Network", '#FFB6C1', 42, kpi_edge_hover_texts)
         except Exception as e:
             error_message_list.append(html.P(f"Error processing KPI file ({kpi_filename}): {str(e)}"))
-            # kpi_fig remains empty or "No data"
+            kpi_graph = None # Ensure graph is None on error
 
-    # Perform Comparison only if both graphs are successfully built
-    if schema_graph and kpi_graph: # Check if graphs were actually created
-        summary_div_children = [] # Clear initial message
+    common_node_positions = None
+    # Attempt to create common layout only if both graphs are valid and non-empty
+    if schema_graph and schema_graph.nodes() and kpi_graph and kpi_graph.nodes():
+        all_nodes = set(schema_graph.nodes()) | set(kpi_graph.nodes())
+        combined_layout_graph = nx.Graph()
+        combined_layout_graph.add_nodes_from(list(all_nodes))
+        # Add edges from both graphs to inform the layout
+        combined_layout_graph.add_edges_from(schema_graph.edges())
+        combined_layout_graph.add_edges_from(kpi_graph.edges())
+        # Ensure enough iterations for potentially larger combined graph
+        common_node_positions = nx.spring_layout(combined_layout_graph, seed=42, k=0.9, iterations=50)
+
+
+    # Generate figures using common_node_positions if available
+    if schema_graph: # Only generate if schema_graph was successfully built
+        schema_edge_hover_texts = []
+        if schema_graph.nodes():
+            for edge in schema_graph.edges(data=True):
+                hover_text = f"Edge: {edge[0]} - {edge[1]}<br>"
+                if 'shared_field' in edge[2]: hover_text += f"Shared Field: {edge[2]['shared_field']}<br>"
+                if 'domain' in edge[2]: hover_text += f"Domain: {edge[2]['domain']}"
+                schema_edge_hover_texts.extend([hover_text, hover_text, None])
+        schema_fig = create_network_figure(schema_graph, "Schema Network", '#ADD8E6', 42, schema_edge_hover_texts, fixed_positions=common_node_positions)
+
+    if kpi_graph: # Only generate if kpi_graph was successfully built
+        kpi_edge_hover_texts = []
+        if kpi_graph.nodes():
+            for edge in kpi_graph.edges(data=True):
+                kpi_links = edge[2].get('kpi_links', [])
+                hover_text = f"Edge: {edge[0]} - {edge[1]}<br>KPIs: {', '.join(kpi_links)}"
+                kpi_edge_hover_texts.extend([hover_text, hover_text, None])
+        kpi_fig = create_network_figure(kpi_graph, "KPI Network", '#FFB6C1', 42, kpi_edge_hover_texts, fixed_positions=common_node_positions)
+
+    # Perform Comparison if both graphs were successfully built (even if one is empty now, graph objects exist)
+    if schema_graph is not None and kpi_graph is not None:
+        summary_div_children = [] # Clear initial "upload both" message
         schema_nodes = set(schema_graph.nodes())
         kpi_nodes = set(kpi_graph.nodes())
         common_nodes = schema_nodes & kpi_nodes
