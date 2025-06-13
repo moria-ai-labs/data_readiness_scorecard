@@ -1,0 +1,12 @@
+pandas
+numpy
+matplotlib
+seaborn
+networkx
+scipy
+python-louvain
+jupyterlab
+notebook
+scikit-learn
+dash
+plotly
