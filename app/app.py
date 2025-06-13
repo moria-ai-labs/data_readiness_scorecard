@@ -149,47 +149,37 @@ def render_tab_content(tab_value):
 
 
 # --- Helper function for graph visualization ---
-def create_network_figure(graph, graph_title="Network Visualization", active_node_color='#ADD8E6', inactive_node_color='rgba(211,211,211,0.3)', layout_seed=42, fixed_positions=None, edge_hover_texts_custom=None, render_nodes_list=None):
-    # Initial Checks for Empty Figure
-    if render_nodes_list is None and (not graph or not graph.nodes()):
+def create_network_figure(graph, graph_title="Network Visualization", node_color='#ADD8E6', layout_seed=42, fixed_positions=None, edge_hover_texts_custom=None):
+    if not graph or not graph.nodes():
         fig = go.Figure()
-        fig.update_layout(title_text=f"{graph_title} - No data to display", annotations=[dict(text="No data to display or network is empty.", showarrow=False, xref="paper", yref="paper", x=0.5, y=0.5)], xaxis={'visible': False}, yaxis={'visible': False}, plot_bgcolor='white')
-        return fig
-    if render_nodes_list is not None and not render_nodes_list:
-        fig = go.Figure()
-        fig.update_layout(title_text=f"{graph_title} - No nodes to render", annotations=[dict(text="No nodes specified for rendering.", showarrow=False, xref="paper", yref="paper", x=0.5, y=0.5)], xaxis={'visible': False}, yaxis={'visible': False}, plot_bgcolor='white')
+        fig.update_layout(
+            title_text=f"{graph_title} - No data to display",
+            xaxis={'showgrid': False, 'zeroline': False, 'showticklabels': False, 'visible': False},
+            yaxis={'showgrid': False, 'zeroline': False, 'showticklabels': False, 'visible': False},
+            showlegend=False,
+            plot_bgcolor='white',
+            annotations=[dict(text="No data to display or network is empty.", showarrow=False, xref="paper", yref="paper", x=0.5, y=0.5)]
+        )
         return fig
 
-    # Determine nodes_to_iterate
-    nodes_to_iterate = render_nodes_list if render_nodes_list is not None else list(graph.nodes())
-
-    # Layout (pos) Calculation
     if fixed_positions:
         pos = fixed_positions
     else:
-        if graph and graph.nodes(): # Layout based on actual graph if available
-            pos = nx.spring_layout(graph, seed=layout_seed, k=0.9)
-        elif nodes_to_iterate: # Fallback to layout only specified nodes if graph is empty/None
-            temp_layout_graph = nx.Graph()
-            temp_layout_graph.add_nodes_from(nodes_to_iterate)
-            pos = nx.spring_layout(temp_layout_graph, seed=layout_seed, k=0.9)
-        else: # Should be caught by initial checks, but as a safeguard
-            pos = {}
+        pos = nx.spring_layout(graph, seed=layout_seed, k=0.9)
 
-    # Edge Trace
     edge_x_coords = []
     edge_y_coords = []
     edge_hover_texts_final = []
-    if graph: # Only create edges if graph exists
+    # Create edges only if graph exists and has nodes (implicitly, edges need nodes)
+    if graph and graph.nodes():
         for i, edge in enumerate(graph.edges(data=True)):
-            # Ensure both nodes of an edge are in pos (especially if fixed_positions might be incomplete)
-            if edge[0] not in pos or edge[1] not in pos:
+            if edge[0] not in pos or edge[1] not in pos: # Ensure nodes are in layout
                 continue
             x0, y0 = pos[edge[0]]
             x1, y1 = pos[edge[1]]
             edge_x_coords.extend([x0, x1, None])
             edge_y_coords.extend([y0, y1, None])
-            if edge_hover_texts_custom and i * 3 + 1 < len(edge_hover_texts_custom): # Check bounds
+            if edge_hover_texts_custom and i * 3 + 1 < len(edge_hover_texts_custom):
                 edge_hover_texts_final.extend([edge_hover_texts_custom[i*3], edge_hover_texts_custom[i*3+1], None])
             else:
                 edge_hover_texts_final.extend([f"Edge: {edge[0]} - {edge[1]}", f"Edge: {edge[0]} - {edge[1]}", None])
@@ -201,29 +191,21 @@ def create_network_figure(graph, graph_title="Network Visualization", active_nod
         hovertext=edge_hover_texts_final,
         mode='lines')
 
-    # Node Data Aggregation
     node_x_coords, node_y_coords, node_text_labels, node_hover_information = [], [], [], []
-    node_marker_sizes, node_marker_colors = [], []
+    node_marker_sizes = []
 
-    for node in nodes_to_iterate:
-        current_x, current_y = pos.get(node, (None, None))
-        if current_x is None: continue
-
-        node_x_coords.append(current_x)
-        node_y_coords.append(current_y)
-        node_text_labels.append(str(node))
-
-        is_active = graph and node in graph.nodes()
-        if is_active:
-            adjacencies = graph.adj.get(node, {})
+    # Iterate only over nodes present in the graph for drawing
+    if graph and graph.nodes():
+        for node, adjacencies in graph.adjacency():
+            if node not in pos: # Ensure node is in layout
+                continue
+            current_x, current_y = pos[node]
+            node_x_coords.append(current_x)
+            node_y_coords.append(current_y)
+            node_text_labels.append(str(node))
             num_connections = len(adjacencies)
             node_hover_information.append(f"Table: {node}<br># Connections: {num_connections}")
             node_marker_sizes.append(num_connections * 5 + 10)
-            node_marker_colors.append(active_node_color)
-        else:
-            node_hover_information.append(f"Table: {node}<br>(Contextual node; not in current dataset's connections)")
-            node_marker_sizes.append(7) # Default smaller size for inactive/contextual nodes
-            node_marker_colors.append(inactive_node_color)
 
     node_trace = go.Scatter(
         x=node_x_coords, y=node_y_coords,
@@ -236,7 +218,7 @@ def create_network_figure(graph, graph_title="Network Visualization", active_nod
             showscale=False,
             size=node_marker_sizes,
             sizemode='diameter',
-            color=node_marker_colors, # This will be a list of colors now
+            color=node_color, # Single color for all nodes in this graph
             line_width=2
         )
     )
@@ -523,46 +505,50 @@ def update_comparison_tab(schema_contents, kpi_contents, schema_filename, kpi_fi
     # Determine all nodes for consistent layout and rendering
     schema_nodes_set = set(schema_graph.nodes()) if schema_graph else set()
     kpi_nodes_set = set(kpi_graph.nodes()) if kpi_graph else set()
-    all_nodes_list = sorted(list(schema_nodes_set | kpi_nodes_set))
+    # all_nodes_list is not used for rendering in this reverted version.
 
     common_node_positions = None
-    if all_nodes_list: # If there's at least one node from either graph
+    # Create common layout only if both graphs are valid and non-empty (or at least one is)
+    # The combined graph should include all nodes from both to ensure layout consistency for all.
+    temp_all_nodes_for_layout = list(schema_nodes_set | kpi_nodes_set)
+
+    if temp_all_nodes_for_layout:
         combined_layout_graph = nx.Graph()
-        combined_layout_graph.add_nodes_from(all_nodes_list) # Add all nodes first
-        # Add edges only from valid graphs to inform layout
+        combined_layout_graph.add_nodes_from(temp_all_nodes_for_layout)
         if schema_graph:
-            valid_schema_edges = [(u,v) for u,v in schema_graph.edges() if u in all_nodes_list and v in all_nodes_list]
+            valid_schema_edges = [(u,v) for u,v in schema_graph.edges() if u in temp_all_nodes_for_layout and v in temp_all_nodes_for_layout]
             combined_layout_graph.add_edges_from(valid_schema_edges)
         if kpi_graph:
-            valid_kpi_edges = [(u,v) for u,v in kpi_graph.edges() if u in all_nodes_list and v in all_nodes_list]
+            valid_kpi_edges = [(u,v) for u,v in kpi_graph.edges() if u in temp_all_nodes_for_layout and v in temp_all_nodes_for_layout]
             combined_layout_graph.add_edges_from(valid_kpi_edges)
 
-        # Ensure spring layout is calculated even if combined_layout_graph has no edges (e.g. all isolated nodes)
         common_node_positions = nx.spring_layout(combined_layout_graph, seed=42, k=0.9, iterations=50)
 
     # Generate figures
     schema_fig = create_network_figure(
         graph=schema_graph, graph_title="Schema Network (Comparison View)",
-        active_node_color='#ADD8E6', inactive_node_color='rgba(211,211,211,0.3)',
-        fixed_positions=common_node_positions, edge_hover_texts_custom=schema_edge_hover_texts,
-        render_nodes_list=all_nodes_list
+        node_color='#ADD8E6', # Use single node_color
+        fixed_positions=common_node_positions,
+        edge_hover_texts_custom=schema_edge_hover_texts
+        # render_nodes_list removed
     )
     kpi_fig = create_network_figure(
         graph=kpi_graph, graph_title="KPI Network (Comparison View)",
-        active_node_color='#FFB6C1', inactive_node_color='rgba(211,211,211,0.3)',
-        fixed_positions=common_node_positions, edge_hover_texts_custom=kpi_edge_hover_texts,
-        render_nodes_list=all_nodes_list
+        node_color='#FFB6C1', # Use single node_color
+        fixed_positions=common_node_positions,
+        edge_hover_texts_custom=kpi_edge_hover_texts
+        # render_nodes_list removed
     )
 
     # Update Summary Statistics
+    # This logic for summary_div_children remains largely the same,
+    # as it depends on schema_nodes_set and kpi_nodes_set which are still calculated.
     if not error_message_list and (schema_graph is not None or kpi_graph is not None):
-        # Show summary if at least one graph was processed without error,
-        # even if the other one was not uploaded.
         summary_div_children = [
             html.P(f"Total Tables in Schema: {len(schema_nodes_set)}"),
             html.P(f"Total Tables in KPI: {len(kpi_nodes_set)}"),
         ]
-        if schema_graph is not None and kpi_graph is not None: # Both processed, can do full comparison
+        if schema_graph is not None and kpi_graph is not None:
             common_nodes = schema_nodes_set & kpi_nodes_set
             schema_only_nodes = schema_nodes_set - kpi_nodes_set
             kpi_only_nodes = kpi_nodes_set - schema_nodes_set
