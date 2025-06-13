@@ -25,7 +25,7 @@ Follow these steps to set up and run the application locally:
 
 2.  **Clone the Repository (Optional):**
     *   If you have cloned a Git repository containing this application, navigate into the repository's root directory. Otherwise, ensure all project files are in a single main directory.
-    *   To clone the repository, use the command: `git clone https://github.com/your-username/your-repository-name.git` (replace with the actual URL).
+    *   To clone the repository, use the command: `git clone https://github.com/moria-ai-labs/data_readiness_scorecard.git`
 
 3.  **Create a Virtual Environment:**
     *   It's highly recommended to use a virtual environment to manage dependencies.
