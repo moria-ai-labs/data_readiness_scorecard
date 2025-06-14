@@ -43,9 +43,8 @@ def generate_schema_narrative(graph, analysis_results):
         else:
             narrative += "No degree centrality information available for the schema network.\n\n"
 
-    # Consider Betweenness (example for one node, if significantly high)
     top_betweenness_nodes = get_top_n_central_nodes(analysis_results, 'betweenness_centrality', 1)
-    if top_betweenness_nodes and float(top_betweenness_nodes[0].split('(')[-1].replace(')','').replace('*','')) > 0: # Check if score > 0
+    if top_betweenness_nodes and float(top_betweenness_nodes[0].split('(')[-1].replace(')','').replace('*','')) > 0:
         narrative += f"Notably, {top_betweenness_nodes[0].split(' (')[0]} shows high betweenness centrality **({top_betweenness_nodes[0].split('(')[-1].replace(')','').replace('*','')})**, suggesting it may act as a crucial bridge connecting different groups of tables within a domain.\n\n"
 
     return narrative
@@ -82,7 +81,7 @@ def generate_kpi_narrative(graph, analysis_results):
     return narrative
 
 def generate_comparison_narrative(schema_graph, kpi_graph, common_nodes, schema_only_nodes, kpi_only_nodes):
-    if schema_graph is None and kpi_graph is None: # Both missing
+    if schema_graph is None and kpi_graph is None:
         return "Comparison narrative cannot be generated as neither schema nor KPI data is available or processed successfully."
     if schema_graph is None:
         return "Comparison narrative cannot be fully generated as schema data is missing or failed to process. Please check KPI narrative for KPI-specific insights."
@@ -117,6 +116,55 @@ def generate_comparison_narrative(schema_graph, kpi_graph, common_nodes, schema_
 
     return narrative
 
+def generate_executive_summary_narrative(parsed_kpi_data, kpi_only_nodes_set):
+    """
+    Generates a narrative listing KPIs that may be uncomputable due to
+    their required tables being in the kpi_only_nodes_set.
+
+    Args:
+        parsed_kpi_data (list): The raw parsed list of KPI dictionaries
+                               (output from data_parser.parse_kpi_json).
+        kpi_only_nodes_set (set): A set of table names that are required by KPIs
+                                  but not found in the schema.
+
+    Returns:
+        str: A markdown formatted string with the narrative.
+    """
+    if not parsed_kpi_data:
+        return "No KPI data was provided or parsed successfully."
+
+    if not kpi_only_nodes_set:
+        return "All KPIs appear to have their required tables defined in the schema based on table name matching."
+
+    at_risk_kpis = []
+    for kpi_item in parsed_kpi_data:
+        kpi_name = kpi_item.get("kpi_name", "Unnamed KPI")
+        data_required = kpi_item.get("data_required", [])
+
+        missing_tables_for_this_kpi = []
+        for req_item in data_required:
+            table_name = req_item.get("table_name")
+            if table_name and table_name in kpi_only_nodes_set:
+                missing_tables_for_this_kpi.append(table_name)
+
+        if missing_tables_for_this_kpi:
+            unique_missing_tables = sorted(list(set(missing_tables_for_this_kpi)))
+            at_risk_kpis.append({
+                "name": kpi_name,
+                "missing_tables": ", ".join(unique_missing_tables)
+            })
+
+    if not at_risk_kpis:
+         return "All KPIs appear to have their required tables defined in the schema based on table name matching."
+
+
+    narrative = "The following KPIs may be **uncomputable or at risk** due to required tables not being found in the schema definitions:\n"
+    for kpi_info in at_risk_kpis:
+        narrative += f"- **{kpi_info['name']}**: Requires missing table(s): *{kpi_info['missing_tables']}*\n"
+
+    narrative += "\nThis highlights a need to define these tables in the schema or verify the KPI data requirements."
+    return narrative
+
 if __name__ == '__main__':
     # Example Usage (for testing purposes)
     class MockGraph:
@@ -126,24 +174,22 @@ if __name__ == '__main__':
         def number_of_nodes(self): return len(self._nodes)
         def number_of_edges(self): return len(self._edges)
         def nodes(self): return self._nodes
-        def adj(self): # Simplified mock adjacency for degree calculation in tests
+        def adj(self):
             adj_dict = {node: {} for node in self._nodes}
             for u, v in self._edges:
                 adj_dict[u][v] = {}
                 adj_dict[v][u] = {}
             return adj_dict
 
-
     mock_schema_analysis_full = {
         'degree_centrality': {'TableA': 0.8, 'TableB': 0.6, 'TableC': 0.5, 'TableD': 0.3},
-        'betweenness_centrality': {'TableA': 0.0, 'TableB': 0.5, 'TableC': 0.0, 'TableD': 0.0} # B is a bridge
+        'betweenness_centrality': {'TableA': 0.0, 'TableB': 0.5, 'TableC': 0.0, 'TableD': 0.0}
     }
     mock_kpi_analysis_full = {
         'degree_centrality': {'TableB': 0.7, 'TableC': 0.9, 'TableE': 0.5}
     }
     mock_schema_analysis_empty = { 'degree_centrality': {} }
     mock_kpi_analysis_empty = { 'degree_centrality': {} }
-
 
     schema_graph_obj_full = MockGraph(nodes=['TableA', 'TableB', 'TableC', 'TableD'], edges=[('TableA','TableB'), ('TableB','TableC')])
     kpi_graph_obj_full = MockGraph(nodes=['TableB', 'TableC', 'TableE'], edges=[('TableB','TableC')])
@@ -187,3 +233,18 @@ if __name__ == '__main__':
     print(get_top_n_central_nodes({'degree_centrality': {'A':0, 'B':0}}, n=2))
     print("\n--- Get Top N (some positive) ---")
     print(get_top_n_central_nodes({'degree_centrality': {'A':0.5, 'B':0, 'C':0.8}}, n=3))
+
+    print("\n--- Executive Summary Narrative (KPIs at Risk) ---")
+    sample_kpi_data_for_exec = [
+        {"kpi_name": "Sales Growth Q1", "data_required": [{"table_name": "Sales"}, {"table_name": "Calendar"}]},
+        {"kpi_name": "Marketing ROI", "data_required": [{"table_name": "Campaigns"}, {"table_name": "Expenses_Marketing"}]},
+        {"kpi_name": "Customer Churn", "data_required": [{"table_name": "Customers"}, {"table_name": "Subscriptions"}]}
+    ]
+    kpi_only_tables_for_exec = {"Expenses_Marketing", "Subscriptions", "NonExistentTable"}
+    print(generate_executive_summary_narrative(sample_kpi_data_for_exec, kpi_only_tables_for_exec))
+
+    kpi_only_tables_empty_for_exec = set()
+    print(generate_executive_summary_narrative(sample_kpi_data_for_exec, kpi_only_tables_empty_for_exec))
+
+    no_kpi_data_for_exec = []
+    print(generate_executive_summary_narrative(no_kpi_data_for_exec, kpi_only_tables_for_exec))

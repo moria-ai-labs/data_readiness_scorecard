@@ -34,7 +34,6 @@ app = dash.Dash(
 app.title = "Data Readiness Scorecard"
 
 # --- Global Styles ---
-# (Styles remain the same)
 app_title_style = {'textAlign': 'center', 'color': '#007BFF', 'marginBottom': '20px'}
 upload_style = {
     'width': '100%', 'height': '60px', 'lineHeight': '60px',
@@ -45,9 +44,6 @@ tab_content_style = {'padding': '10px'}
 error_message_style = {'color': 'red', 'margin': '10px', 'padding': '10px', 'border': '1px solid red', 'borderRadius': '5px'}
 
 # --- Layout Helper Functions ---
-# (Layout functions: create_schema_tab_layout, create_kpi_tab_layout,
-#  create_comparison_tab_layout, create_narrative_summary_tab_layout remain unchanged from Turn 83 content,
-#  as create_comparison_tab_layout was already updated in Turn 77 to include the combined graph placeholder)
 def create_schema_tab_layout():
     return html.Div([
         html.Div(id='schema-error-message', style=error_message_style),
@@ -103,7 +99,30 @@ def create_narrative_summary_tab_layout():
         )
     ], style=tab_content_style)
 
-# (app.layout definition remains unchanged from Turn 83 content)
+def create_exec_summary_tab_layout():
+    return html.Div([
+        html.Div(id='exec-summary-error-message', style=error_message_style),
+        dcc.Loading(
+            id='loading-exec-summary',
+            type="circle",
+            children=[
+                html.Div([
+                    html.H4("Key Metrics Overview", style={'textAlign': 'center', 'marginTop': '20px', 'marginBottom': '10px'}),
+                    html.Div(style={'padding': '15px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'marginBottom': '20px', 'backgroundColor': 'rgba(0,0,0,0.02)'}, children=[
+                       html.P(id='avg-schema-centrality-text', style={'marginBottom': '5px'}),
+                       html.P(id='avg-kpi-centrality-text', style={'marginTop': '5px'}),
+                    ]),
+                    html.H5("Tables Required by KPIs but Missing in Schema:", style={'marginTop': '20px'}),
+                    dcc.Markdown(id='exec-kpi-only-nodes-list', style={'padding': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'marginBottom': '15px', 'minHeight': '50px'}),
+                    html.H5("Data Links Implied by KPIs but Missing in Schema Structure:", style={'marginTop': '20px'}),
+                    dcc.Markdown(id='exec-kpi-only-edges-list', style={'padding': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'marginBottom': '15px', 'minHeight': '50px'}),
+                    html.H5("KPIs Potentially At Risk Due to Missing Tables:", style={'marginTop': '20px'}),
+                    dcc.Markdown(id='exec-uncomputable-kpis-narrative', style={'whiteSpace': 'pre-wrap', 'padding': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'minHeight': '70px'})
+                ])
+            ]
+        )
+    ], style=tab_content_style)
+
 app.layout = html.Div([
     html.Div(className='app-header', children=[
         html.Img(id='logo-img', src=app.get_asset_url('logo.jpg'), style={'height':'50px', 'marginRight':'15px', 'verticalAlign':'middle'}),
@@ -117,7 +136,8 @@ app.layout = html.Div([
             dcc.Upload(id='upload-kpi-data', children=html.Div(['Drag and Drop or ', html.A('Select KPI JSON File')]), style=upload_style, multiple=False),
         ], style={'width': '45%'}),
     ], style={'display': 'flex', 'flexDirection': 'row', 'justifyContent': 'space-around', 'marginBottom': '20px'}),
-    dcc.Tabs(id='tabs-main', value='tab-schema-analysis', children=[
+    dcc.Tabs(id='tabs-main', value='tab-exec-summary', children=[
+        dcc.Tab(label='Executive Summary', value='tab-exec-summary'),
         dcc.Tab(label='Schema Network Analysis', value='tab-schema-analysis'),
         dcc.Tab(label='KPI Network Analysis', value='tab-kpi-analysis'),
         dcc.Tab(label='Network Comparison', value='tab-comparison'),
@@ -126,25 +146,20 @@ app.layout = html.Div([
     html.Div(id='tabs-content-main')
 ])
 
-# (render_tab_content callback remains unchanged from Turn 83 content)
 @app.callback(Output('tabs-content-main', 'children'), Input('tabs-main', 'value'))
 def render_tab_content(tab_value):
-    if tab_value == 'tab-schema-analysis': return create_schema_tab_layout()
+    if tab_value == 'tab-exec-summary': return create_exec_summary_tab_layout()
+    elif tab_value == 'tab-schema-analysis': return create_schema_tab_layout()
     elif tab_value == 'tab-kpi-analysis': return create_kpi_tab_layout()
     elif tab_value == 'tab-comparison': return create_comparison_tab_layout()
     elif tab_value == 'tab-narrative-summary': return create_narrative_summary_tab_layout()
     return html.Div([html.H3("Select a tab")])
 
-# (create_network_figure function remains unchanged from Turn 83 content - it's the advanced one)
 def create_network_figure(graph, graph_title="Network Visualization", node_color_input='#ADD8E6', layout_seed=42, fixed_positions=None, edge_hover_texts_custom=None, render_nodes_list=None):
     if render_nodes_list is None and (not graph or not graph.nodes()):
-        fig = go.Figure()
-        fig.update_layout(title_text=f"{graph_title} - No data to display", annotations=[dict(text="No data to display or network is empty.", showarrow=False, xref="paper", yref="paper", x=0.5, y=0.5)], xaxis={'visible': False}, yaxis={'visible': False}, plot_bgcolor='white')
-        return fig
+        fig = go.Figure(); fig.update_layout(title_text=f"{graph_title} - No data to display", annotations=[dict(text="No data to display or network is empty.", showarrow=False, xref="paper", yref="paper", x=0.5, y=0.5)], xaxis={'visible': False}, yaxis={'visible': False}, plot_bgcolor='white'); return fig
     if render_nodes_list is not None and not render_nodes_list:
-        fig = go.Figure()
-        fig.update_layout(title_text=f"{graph_title} - No nodes to render", annotations=[dict(text="No nodes specified for rendering.", showarrow=False, xref="paper", yref="paper", x=0.5, y=0.5)], xaxis={'visible': False}, yaxis={'visible': False}, plot_bgcolor='white')
-        return fig
+        fig = go.Figure(); fig.update_layout(title_text=f"{graph_title} - No nodes to render", annotations=[dict(text="No nodes specified for rendering.", showarrow=False, xref="paper", yref="paper", x=0.5, y=0.5)], xaxis={'visible': False}, yaxis={'visible': False}, plot_bgcolor='white'); return fig
     nodes_to_iterate = render_nodes_list if render_nodes_list is not None else list(graph.nodes())
     if fixed_positions: pos = fixed_positions
     else:
@@ -159,8 +174,7 @@ def create_network_figure(graph, graph_title="Network Visualization", node_color
             if edge[0] not in pos or edge[1] not in pos: continue
             x0, y0 = pos[edge[0]]; x1, y1 = pos[edge[1]]
             edge_x_coords.extend([x0, x1, None]); edge_y_coords.extend([y0, y1, None])
-            if edge_hover_texts_custom and i * 3 + 1 < len(edge_hover_texts_custom):
-                edge_hover_texts_final.extend([edge_hover_texts_custom[i*3], edge_hover_texts_custom[i*3+1], None])
+            if edge_hover_texts_custom and i * 3 + 1 < len(edge_hover_texts_custom): edge_hover_texts_final.extend([edge_hover_texts_custom[i*3], edge_hover_texts_custom[i*3+1], None])
             else: edge_hover_texts_final.extend([f"Edge: {edge[0]} - {edge[1]}", f"Edge: {edge[0]} - {edge[1]}", None])
     edge_trace = go.Scatter(x=edge_x_coords, y=edge_y_coords, line=dict(width=0.7, color='#888'), hoverinfo='text', hovertext=edge_hover_texts_final, mode='lines')
     node_x_coords, node_y_coords, node_text_labels, node_hover_information, node_marker_sizes, node_marker_colors = [], [], [], [], [], []
@@ -174,13 +188,11 @@ def create_network_figure(graph, graph_title="Network Visualization", node_color
         if is_active:
             adjacencies = graph.adj.get(node, {}); num_connections = len(adjacencies)
             node_hover_information.append(f"Table: {node}<br># Connections: {num_connections}"); node_marker_sizes.append(num_connections * 5 + 10)
-        else:
-            node_hover_information.append(f"Table: {node}<br>(Contextual node; not in current dataset's connections)"); node_marker_sizes.append(7)
+        else: node_hover_information.append(f"Table: {node}<br>(Contextual node; not in current dataset's connections)"); node_marker_sizes.append(7)
     node_trace = go.Scatter(x=node_x_coords, y=node_y_coords, mode='markers+text', text=node_text_labels, textposition="top center", hoverinfo='text', hovertext=node_hover_information, marker=dict(showscale=False, size=node_marker_sizes, sizemode='diameter', color=node_marker_colors, line_width=2))
     fig_layout = go.Layout(title={'text': graph_title, 'font': {'size': 16}}, showlegend=False, hovermode='closest', margin=dict(b=20,l=5,r=5,t=40), xaxis=dict(showgrid=False, zeroline=False, showticklabels=False), yaxis=dict(showgrid=False, zeroline=False, showticklabels=False), plot_bgcolor='white')
     return go.Figure(data=[edge_trace, node_trace], layout=fig_layout)
 
-# (update_schema_analysis_tab and update_kpi_analysis_tab remain unchanged from Turn 83, they already use node_color_input and render_nodes_list=None)
 @app.callback(
     [Output('schema-network-graph', 'figure'), Output('schema-centrality-table', 'children'), Output('schema-error-message', 'children')],
     [Input('upload-schema-data', 'contents')],
@@ -263,12 +275,11 @@ def update_kpi_analysis_tab(contents, filename):
         error_message = html.Div(f"Error processing KPI file ({filename}): {str(e)}"); fig = go.Figure().update_layout(title_text="Error in KPI data processing"); centrality_div = html.P("Cannot calculate centrality due to KPI data error.")
     return fig, centrality_div, error_message
 
-# Callback for Comparison Tab
 @app.callback(
     [Output('comparison-summary-stats', 'children'),
      Output('comparison-schema-graph', 'figure'),
      Output('comparison-kpi-graph', 'figure'),
-     Output('comparison-combined-graph', 'figure'), # Added new output
+     Output('comparison-combined-graph', 'figure'),
      Output('comparison-error-message', 'children')],
     [Input('upload-schema-data', 'contents'),
      Input('upload-kpi-data', 'contents')],
@@ -278,19 +289,16 @@ def update_kpi_analysis_tab(contents, filename):
 def update_comparison_tab(schema_contents, kpi_contents, schema_filename, kpi_filename):
     summary_div_children = [html.P("Please upload both Schema and KPI JSON files to see the comparison.", style={'textAlign': 'center'})]
     error_message_list = []
-    schema_graph, kpi_graph, combined_layout_graph = None, None, None # combined_layout_graph added
+    schema_graph, kpi_graph, combined_layout_graph = None, None, None
     schema_edge_hover_texts, kpi_edge_hover_texts = None, None
 
-    # Initialize figures for all graphs
     schema_fig = create_network_figure(None, "Schema Network (Comparison View)", render_nodes_list=[])
     kpi_fig = create_network_figure(None, "KPI Network (Comparison View)", render_nodes_list=[])
     combined_fig = create_network_figure(None, "Combined Network View (All Nodes & Edges)", render_nodes_list=[])
 
-
     if not schema_contents and not kpi_contents:
         return summary_div_children, schema_fig, kpi_fig, combined_fig, None
 
-    # Process Schema Data
     if schema_contents:
         try:
             s_content_type, s_content_string = schema_contents.split(',')
@@ -309,7 +317,6 @@ def update_comparison_tab(schema_contents, kpi_contents, schema_filename, kpi_fi
         except Exception as e:
             error_message_list.append(html.P(f"Error processing Schema file ({schema_filename}): {str(e)}")); schema_graph = None
 
-    # Process KPI Data
     if kpi_contents:
         try:
             k_content_type, k_content_string = kpi_contents.split(',')
@@ -347,13 +354,14 @@ def update_comparison_tab(schema_contents, kpi_contents, schema_filename, kpi_fi
         if kpi_graph:
             valid_kpi_edges = [(u,v) for u,v in kpi_graph.edges() if u in all_nodes_list and v in all_nodes_list]
             combined_layout_graph.add_edges_from(valid_kpi_edges)
-        common_node_positions = nx.spring_layout(combined_layout_graph, seed=42, k=0.9, iterations=50)
+        if combined_layout_graph.nodes():
+            common_node_positions = nx.spring_layout(combined_layout_graph, seed=42, k=0.9, iterations=50)
 
         for node in all_nodes_list:
-            if node in common_nodes_set: ordered_node_colors.append('purple') # Common nodes
-            elif node in schema_only_nodes_set: ordered_node_colors.append('#ADD8E6') # Schema-only (blue)
-            elif node in kpi_only_nodes_set: ordered_node_colors.append('#FFB6C1') # KPI-only (pink)
-            else: ordered_node_colors.append('grey') # Should not happen
+            if node in common_nodes_set: ordered_node_colors.append('purple')
+            elif node in schema_only_nodes_set: ordered_node_colors.append('#ADD8E6')
+            elif node in kpi_only_nodes_set: ordered_node_colors.append('#FFB6C1')
+            else: ordered_node_colors.append('grey')
 
     schema_fig = create_network_figure(graph=schema_graph, graph_title="Schema Network (Comparison View)", node_color_input='#ADD8E6', fixed_positions=common_node_positions, edge_hover_texts_custom=schema_edge_hover_texts, render_nodes_list=all_nodes_list)
     kpi_fig = create_network_figure(graph=kpi_graph, graph_title="KPI Network (Comparison View)", node_color_input='#FFB6C1', fixed_positions=common_node_positions, edge_hover_texts_custom=kpi_edge_hover_texts, render_nodes_list=all_nodes_list)
@@ -368,7 +376,7 @@ def update_comparison_tab(schema_contents, kpi_contents, schema_filename, kpi_fi
              render_nodes_list=all_nodes_list
          )
     else:
-        combined_fig = create_network_figure(None, "Combined Network View (All Nodes & Edges)", render_nodes_list=[])
+        combined_fig = create_network_figure(None, "Combined Network View (All Nodes & Edges)", render_nodes_list=all_nodes_list if all_nodes_list else [])
 
     if not error_message_list and (schema_graph is not None or kpi_graph is not None):
         summary_div_children = [html.P(f"Total Tables in Schema: {len(schema_nodes_set)}"), html.P(f"Total Tables in KPI: {len(kpi_nodes_set)}")]
@@ -385,7 +393,7 @@ def update_comparison_tab(schema_contents, kpi_contents, schema_filename, kpi_fi
     final_error_message = html.Div(error_message_list) if error_message_list else None
     return summary_div_children, schema_fig, kpi_fig, combined_fig, final_error_message
 
-# (update_narrative_summary_tab remains unchanged)
+# Callback for Narrative Summary Tab
 @app.callback(
     [Output('narrative-summary-content', 'children'), Output('narrative-summary-error-message', 'children')],
     [Input('upload-schema-data', 'contents'), Input('upload-kpi-data', 'contents')],
@@ -431,6 +439,103 @@ def update_narrative_summary_tab(schema_contents, kpi_contents, schema_filename,
         pass
     final_error_message_div = html.Div(error_message_children) if error_message_children else None
     return narrative_text, final_error_message_div
+
+# <<< START OF NEW CALLBACK TO BE ADDED >>>
+@app.callback(
+    [Output('avg-schema-centrality-text', 'children'),
+     Output('avg-kpi-centrality-text', 'children'),
+     Output('exec-kpi-only-nodes-list', 'children'),
+     Output('exec-kpi-only-edges-list', 'children'),
+     Output('exec-uncomputable-kpis-narrative', 'children'),
+     Output('exec-summary-error-message', 'children')],
+    [Input('upload-schema-data', 'contents'),
+     Input('upload-kpi-data', 'contents')],
+    [State('upload-schema-data', 'filename'),
+     State('upload-kpi-data', 'filename')]
+)
+def update_exec_summary_tab(schema_contents, kpi_contents, schema_filename, kpi_filename):
+    avg_schema_centrality_str = "Average Schema Degree Centrality: N/A"
+    avg_kpi_centrality_str = "Average KPI Degree Centrality: N/A"
+    kpi_only_nodes_md = "Upload both files to view this information."
+    kpi_only_edges_md = "Upload both files to view this information."
+    uncomputable_kpis_narrative_md = "Upload both files to view this information."
+    error_message_children = []
+
+    if schema_contents is None and kpi_contents is None:
+        return avg_schema_centrality_str, avg_kpi_centrality_str, kpi_only_nodes_md, kpi_only_edges_md, uncomputable_kpis_narrative_md, None
+
+    schema_graph, schema_analysis, parsed_schema_data = None, None, None
+    if schema_contents:
+        try:
+            s_content_type, s_content_string = schema_contents.split(',')
+            s_decoded = base64.b64decode(s_content_string)
+            s_json_data_str = s_decoded.decode('utf-8')
+            parsed_schema_data = dp.parse_schema_json(s_json_data_str)
+            if not parsed_schema_data: raise ValueError("Schema data is empty or could not be parsed.")
+            schema_graph = nb.build_schema_network(parsed_schema_data)
+            if schema_graph.number_of_nodes() > 0:
+                schema_analysis = na.analyze_network(schema_graph)
+                avg_deg_schema = na.calculate_average_centrality(schema_analysis, 'degree_centrality')
+                avg_schema_centrality_str = f"Average Schema Degree Centrality: {avg_deg_schema:.3f}" if avg_deg_schema is not None else "Average Schema Degree Centrality: Calculation Error or No Data"
+            else:
+                avg_schema_centrality_str = "Average Schema Degree Centrality: 0.000 (No tables in schema)"
+        except Exception as e:
+            error_message_children.append(html.P(f"Error processing Schema file ({schema_filename}): {str(e)}"))
+            schema_graph = None
+    elif kpi_contents:
+         error_message_children.append(html.P("Schema JSON file not uploaded. Some metrics and comparisons will be unavailable."))
+
+    kpi_graph, kpi_analysis, parsed_kpi_data = None, None, None
+    if kpi_contents:
+        try:
+            k_content_type, k_content_string = kpi_contents.split(',')
+            k_decoded = base64.b64decode(k_content_string)
+            k_json_data_str = k_decoded.decode('utf-8')
+            parsed_kpi_data = dp.parse_kpi_json(k_json_data_str)
+            if not parsed_kpi_data: raise ValueError("KPI data is empty or could not be parsed.")
+            kpi_graph = nb.build_kpi_network(parsed_kpi_data)
+            if kpi_graph.number_of_nodes() > 0:
+                kpi_analysis = na.analyze_network(kpi_graph)
+                avg_deg_kpi = na.calculate_average_centrality(kpi_analysis, 'degree_centrality')
+                avg_kpi_centrality_str = f"Average KPI Degree Centrality: {avg_deg_kpi:.3f}" if avg_deg_kpi is not None else "Average KPI Degree Centrality: Calculation Error or No Data"
+            else:
+                avg_kpi_centrality_str = "Average KPI Degree Centrality: 0.000 (No tables required by KPIs)"
+        except Exception as e:
+            error_message_children.append(html.P(f"Error processing KPI file ({kpi_filename}): {str(e)}"))
+            kpi_graph = None
+    elif schema_contents:
+         error_message_children.append(html.P("KPI JSON file not uploaded. Some metrics and comparisons will be unavailable."))
+
+    if schema_graph is not None and kpi_graph is not None and parsed_kpi_data is not None:
+        schema_nodes_set = set(schema_graph.nodes())
+        kpi_nodes_set = set(kpi_graph.nodes())
+        kpi_only_nodes_set = kpi_nodes_set - schema_nodes_set
+
+        kpi_only_nodes_md = "\n".join([f"- `{node}`" for node in sorted(list(kpi_only_nodes_set))]) if kpi_only_nodes_set else "_None found. All tables required by KPIs appear to be present in the schema._"
+
+        s_edges = set(tuple(sorted(edge[:2])) for edge in schema_graph.edges())
+        k_edges = set(tuple(sorted(edge[:2])) for edge in kpi_graph.edges())
+        kpi_only_edges_set = k_edges - s_edges
+
+        kpi_only_edges_md = "\n".join([f"- `{edge[0]}` -- `{edge[1]}`" for edge in sorted(list(kpi_only_edges_set))]) if kpi_only_edges_set else "_None found. All data links implied by KPIs appear to have corresponding structural links in the schema._"
+
+        uncomputable_kpis_narrative_md = ng.generate_executive_summary_narrative(parsed_kpi_data, kpi_only_nodes_set)
+
+    elif kpi_graph is not None and parsed_kpi_data is not None:
+        kpi_nodes_set = set(kpi_graph.nodes())
+        kpi_only_nodes_md = "Schema data not available. Listing all tables from KPI data:\n" + "\n".join([f"- `{node}`" for node in sorted(list(kpi_nodes_set))]) if kpi_nodes_set else "No tables found in KPI data."
+        k_edges = set(tuple(sorted(edge[:2])) for edge in kpi_graph.edges())
+        kpi_only_edges_md = "Schema data not available. Listing all links from KPI data:\n" + "\n".join([f"- `{edge[0]}` -- `{edge[1]}`" for edge in sorted(list(k_edges))]) if k_edges else "No links found in KPI data."
+        uncomputable_kpis_narrative_md = ng.generate_executive_summary_narrative(parsed_kpi_data, kpi_nodes_set)
+
+    elif schema_graph is not None:
+         kpi_only_nodes_md = "_KPI data not available for this analysis._"
+         kpi_only_edges_md = "_KPI data not available for this analysis._"
+         uncomputable_kpis_narrative_md = "_KPI data not available for this analysis._"
+
+    final_error_message_div = html.Div(error_message_children) if error_message_children else None
+    return avg_schema_centrality_str, avg_kpi_centrality_str, kpi_only_nodes_md, kpi_only_edges_md, uncomputable_kpis_narrative_md, final_error_message_div
+# <<< END OF NEW CALLBACK >>>
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8050)

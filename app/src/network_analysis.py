@@ -46,3 +46,33 @@ def analyze_network(graph: nx.Graph) -> dict:
 
 # def calculate_network_density(graph):
 #     pass
+
+def calculate_average_centrality(analysis_results, centrality_key='degree_centrality'):
+    """
+    Calculates the average centrality score from the analysis results.
+
+    Args:
+        analysis_results (dict): The dictionary output from analyze_network.
+        centrality_key (str): The key for the specific centrality measure
+                             (e.g., 'degree_centrality').
+
+    Returns:
+        float: The average centrality score, or None if data is unavailable or empty.
+    """
+    if not analysis_results or not isinstance(analysis_results, dict):
+        return None
+
+    centrality_data = analysis_results.get(centrality_key)
+    if not centrality_data or not isinstance(centrality_data, dict) or not centrality_data.values():
+        # Handles empty dict or dict with no values
+        return None
+
+    try:
+        # Ensure all values are numbers, filter out non-numeric if any (should not happen with current analyze_network)
+        scores = [score for score in centrality_data.values() if isinstance(score, (int, float))]
+        if not scores:
+            return None # No numeric scores found
+        return sum(scores) / len(scores)
+    except TypeError:
+        # Should not happen if centrality_data.values() are numbers
+        return None

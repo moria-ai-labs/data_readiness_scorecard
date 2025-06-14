@@ -57,7 +57,9 @@ class TestAppUtils(unittest.TestCase):
         # Node trace checks
         node_trace = fig.data[1]
         self.assertEqual(node_trace.mode, 'markers+text')
-        self.assertEqual(node_trace.marker.color, 'red')
+        # If node_color_input is a single string, all markers get that color.
+        # Plotly might return it as a tuple/list of that color repeated for each node.
+        self.assertTrue(all(c == 'red' for c in node_trace.marker.color) if isinstance(node_trace.marker.color, (list, tuple)) else node_trace.marker.color == 'red')
         self.assertEqual(len(node_trace.x), G_simple.number_of_nodes()) # Should have 3 nodes
 
         # Check node texts and hover texts (order depends on internal processing, so check presence)

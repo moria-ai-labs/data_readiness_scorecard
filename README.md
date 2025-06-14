@@ -135,6 +135,25 @@ The file should be a JSON list, where each item represents a KPI. Each KPI must 
 3.  Run the application using the command: `python app/app.py`
 4.  Open your web browser and go to `http://127.0.0.1:8050/` (or `http://0.0.0.0:8050/` if accessing from another device on your network).
 
+## Executive Summary Tab (Default View)
+
+The Executive Summary tab is the default view upon starting the application and provides a quick overview of key metrics and potential data readiness issues:
+
+*   **Key Metrics Overview:**
+    *   **Average Schema Degree Centrality:** Displays the average number of direct connections (based on shared fields within domains) per table in your schema. A higher value might indicate a more interconnected schema.
+    *   **Average KPI Degree Centrality:** Displays the average number of co-occurrences for tables within KPI definitions. A higher value here suggests tables are frequently used together in multiple KPIs.
+*   **Tables Required by KPIs but Missing in Schema:**
+    *   Lists all table names that are specified in the KPI data requirements but are not found in the uploaded schema data.
+    *   This directly highlights potential data gaps for fulfilling KPI reporting.
+*   **Data Links Implied by KPIs but Missing in Schema Structure:**
+    *   Lists pairs of tables that are required together for one or more KPIs, but for which no direct structural link (shared field within the same domain) was detected in the schema.
+    *   This can point to missing relationships in the schema that might be necessary for joining data to compute KPIs.
+*   **KPIs Potentially At Risk Due to Missing Tables:**
+    *   Provides a narrative listing specific KPIs that depend on tables identified as "Missing in Schema."
+    *   This section helps prioritize which data gaps need to be addressed to ensure KPI computability.
+
+Use this summary to quickly identify critical areas for data governance, schema refinement, and ensuring your data landscape supports your KPI strategy.
+
 ## Using the Application
 
 ### File Uploads
@@ -143,9 +162,9 @@ On the main page, you will see two upload components:
 *   **Select KPI JSON File:** Use this to upload your prepared KPI JSON file.
 You can click on these components to browse for your files or drag and drop the files onto them.
 
-### Tabs Overview
+### Detailed Analysis Tabs
 
-Once files are uploaded, the application will populate the analysis tabs:
+Once files are uploaded, the application will populate the following analysis tabs:
 
 #### Schema Network Analysis Tab
 *   **Purpose:** Visualizes the structure of your schema, highlighting relationships between tables based on shared fields.

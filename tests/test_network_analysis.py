@@ -80,6 +80,38 @@ class TestNetworkAnalysis(unittest.TestCase):
             self.assertIn('A', results['eigenvector_centrality'])
             self.assertIn('C', results['eigenvector_centrality'])
 
+from app.src.network_analysis import calculate_average_centrality
+
+class TestCalculateAverageCentrality(unittest.TestCase):
+    def test_calculate_average_centrality_empty_or_none(self):
+        self.assertIsNone(calculate_average_centrality(None, 'degree_centrality'))
+        self.assertIsNone(calculate_average_centrality({}, 'degree_centrality'))
+        self.assertIsNone(calculate_average_centrality({'degree_centrality': {}}, 'degree_centrality'))
+        self.assertIsNone(calculate_average_centrality({'other_key': {'a': 1}}, 'degree_centrality'))
+
+    def test_calculate_average_centrality_valid_data(self):
+        analysis_results = {'degree_centrality': {'a': 0.5, 'b': 1.0, 'c': 0.0}}
+        self.assertAlmostEqual(calculate_average_centrality(analysis_results, 'degree_centrality'), 0.5)
+
+        analysis_results = {'degree_centrality': {'a': 1, 'b': 2, 'c': 3}}
+        self.assertAlmostEqual(calculate_average_centrality(analysis_results, 'degree_centrality'), 2.0)
+
+    def test_calculate_average_centrality_non_numeric_scores(self):
+        # Current implementation filters out non-numeric scores
+        analysis_results = {'degree_centrality': {'a': 'text', 'b': 1.0}}
+        self.assertAlmostEqual(calculate_average_centrality(analysis_results, 'degree_centrality'), 1.0)
+
+        analysis_results = {'degree_centrality': {'a': 'text', 'b': 'another_text'}}
+        self.assertIsNone(calculate_average_centrality(analysis_results, 'degree_centrality')) # No numeric scores
+
+    def test_calculate_average_centrality_with_other_metrics(self):
+        analysis_results = {
+            'degree_centrality': {'a': 0.5, 'b': 1.0},
+            'betweenness_centrality': {'a': 0.1, 'b': 0.2}
+        }
+        self.assertAlmostEqual(calculate_average_centrality(analysis_results, 'degree_centrality'), 0.75)
+        self.assertAlmostEqual(calculate_average_centrality(analysis_results, 'betweenness_centrality'), 0.15)
+
 
 if __name__ == '__main__':
     unittest.main()
