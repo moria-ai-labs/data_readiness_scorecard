@@ -37,7 +37,7 @@ Follow these steps to set up and run the application locally:
 
 5.  **Install Dependencies:**
     *   Ensure your virtual environment is active.
-    *   Install the required Python packages: `pip install -r requirements.txt`
+    *   Install the required Python packages: `pip install -r requirements.txt`. This file includes key libraries such as Dash, NetworkX, Pandas, and `dash-bootstrap-components`.
 
 ## Preparing Your Data
 
@@ -184,6 +184,22 @@ Once files are uploaded, the application will populate the analysis tabs:
         *   Missing tables in your schema definition.
         *   Typos in table names in either file.
         *   KPIs relying on data sources not yet formally documented in the schema.
+    *   **Narrative Summary Tab:**
+        *   Purpose: Provides an automated textual summary of the schema network, KPI network, and key comparisons between them. This helps in quickly understanding the main characteristics and potential insights from the uploaded data.
+        *   How to Use: After uploading both the Schema JSON and KPI JSON files, navigate to this tab. The narrative will be automatically generated.
+        *   Content:
+            *   **Schema Overview**: Describes the schema network, including the total number of tables, detected relationships (based on shared fields), and lists key tables by their connectivity (degree centrality). May also highlight tables with significant bridging roles (betweenness centrality).
+            *   **KPI Overview**: Describes the KPI network, including the total number of tables involved in KPIs, links indicating co-requirement for KPIs, and lists key tables by their co-occurrence in KPIs.
+            *   **Comparison Insights**: Details the number of common tables, tables found only in the schema, and tables required by KPIs but not found in the schema. It provides examples and discusses potential implications like data gaps or underutilized assets.
+        *   Interpretation: Use this narrative as a starting point for understanding your data landscape. The insights can guide further investigation into data governance, KPI readiness, and data utilization.
+
+#### Theme and Logo
+*   This application uses the **'Darkly'** theme from Dash Bootstrap Components for its visual styling, providing a modern, dark interface.
+*   To display your custom logo in the header:
+    1.  Ensure an `assets` folder exists inside the `app` directory (i.e., `app/assets/`). If not, create it.
+    2.  Place your logo file named `logo.png` into this `app/assets/` directory.
+    3.  The application is configured to automatically load `logo.png` from this location.
+    4.  You can adjust the logo's appearance (e.g., default height of 50px) by modifying the `#logo-img` styles in the `app/assets/custom_style.css` file.
 
 ## Troubleshooting
 

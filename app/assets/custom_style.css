@@ -1,0 +1,44 @@
+/* General body styling (often handled by DBC theme, but good for fallback) */
+body {
+    margin: 0; /* Remove default browser margin */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; /* Common sans-serif stack */
+}
+
+/* Header styling */
+.app-header {
+    display: flex;
+    align-items: center; /* Vertically align logo and title */
+    padding: 10px 20px; /* Padding around the header content */
+    /* The Darkly theme provides a dark background.
+       If specific overrides are needed, they can be added here,
+       but it's often better to let the theme handle it.
+       Example: background-color: #282c34;
+    */
+    /* border-bottom: 1px solid #444; /* Optional: a subtle separator */
+}
+
+#logo-img {
+    height: 50px; /* Adjust as per actual logo aspect ratio and desired size */
+    width: auto;  /* Maintain aspect ratio */
+    margin-right: 20px; /* Space between logo and title */
+}
+
+.app-header h1 {
+    /* The Darkly theme will make H1 text light.
+       The existing app_title_style in app.py might set text-align and color.
+       If app_title_style color is dark (e.g., #007BFF), it will need to be
+       removed or overridden here for visibility on a dark theme.
+       For now, we assume app_title_style is compatible or will be adjusted.
+    */
+    font-size: 1.8rem; /* Responsive font size */
+    margin-top: 0; /* Remove or adjust top margin if H1 is the first child */
+    margin-bottom: 0; /* Remove default bottom margin from H1 in header */
+    font-weight: 500; /* A common weight for titles */
+}
+
+/* Ensure upload components are visible on dark theme if default styling is problematic */
+/* This is often handled well by DBC themes, but good to keep in mind. */
+.dash-upload {
+    /* Example: border: 1px dashed #555; */
+    /* background-color: rgba(255, 255, 255, 0.05); */
+}

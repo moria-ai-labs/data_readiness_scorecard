@@ -10,3 +10,4 @@ notebook
 scikit-learn
 dash
 plotly
+dash-bootstrap-components

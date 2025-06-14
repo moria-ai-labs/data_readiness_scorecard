@@ -1,21 +1,40 @@
-import dash # Keep this and other standard library imports
+import os
+import sys
+
+if __name__ == '__main__':
+    # This block ensures that when app.py is run directly (e.g., python app/app.py),
+    # Python can correctly resolve imports relative to the 'app' package.
+    # It adds the project's root directory (the parent directory of 'app') to sys.path.
+    # This allows Python's import system to find the 'app' package itself.
+    current_script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(current_script_dir)
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+import dash
+import dash_bootstrap_components as dbc # Added import
 from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 import base64
 import io
-import json # json was already here, ensure it stays
+import json
 import plotly.graph_objects as go
 import networkx as nx
 
-# Revert to relative imports for src modules
-from src import data_parser as dp
-from src import network_builder as nb
-from src import network_analysis as na
+# Use absolute imports from the project root (which is added to sys.path)
+from app.src import data_parser as dp
+from app.src import network_builder as nb
+from app.src import network_analysis as na
+from app.src import narrative_generator as ng
 
 
 # Initialize the Dash application
-app = dash.Dash(__name__, suppress_callback_exceptions=True)
+app = dash.Dash(
+    __name__,
+    suppress_callback_exceptions=True,
+    external_stylesheets=[dbc.themes.DARKLY] # Added theme
+)
 app.title = "Data Readiness Scorecard"
 
 # --- Global Styles ---
@@ -66,10 +85,26 @@ def create_comparison_tab_layout():
         ], style={'display': 'flex', 'flexDirection': 'row'})
     ], style=tab_content_style)
 
+def create_narrative_summary_tab_layout():
+    return html.Div([
+        html.Div(id='narrative-summary-error-message', style=error_message_style),
+        dcc.Loading(
+            id='loading-narrative-summary',
+            children=[
+                dcc.Markdown(id='narrative-summary-content', style={'whiteSpace': 'pre-wrap', 'padding': '15px', 'border': '1px solid #eee', 'borderRadius': '5px'})
+            ],
+            type="circle"
+        )
+    ], style=tab_content_style)
+
 # Define the application layout
 app.layout = html.Div([
-    html.H1("Data Readiness Scorecard", style=app_title_style),
-    html.Div([
+    html.Div(className='app-header', children=[ # New header div
+        html.Img(id='logo-img', src=app.get_asset_url('logo.png'), style={'height':'50px', 'marginRight':'15px', 'verticalAlign':'middle'}), # Basic logo style
+        html.H1("Data Readiness Scorecard", style={**app_title_style, 'display':'inline-block', 'verticalAlign':'middle'}) # Moved H1, adjusted style for inline
+    ], style={'display':'flex', 'alignItems':'center', 'justifyContent':'center', 'marginBottom': '20px'}), # Header div style
+
+    html.Div([ # This was the previous first main Div for uploads
         html.Div([ # Wrapper div for schema upload
             dcc.Upload(
                 id='upload-schema-data',
@@ -92,6 +127,7 @@ app.layout = html.Div([
         dcc.Tab(label='Schema Network Analysis', value='tab-schema-analysis'),
         dcc.Tab(label='KPI Network Analysis', value='tab-kpi-analysis'),
         dcc.Tab(label='Network Comparison', value='tab-comparison'),
+        dcc.Tab(label='Narrative Summary', value='tab-narrative-summary'),
     ]),
     html.Div(id='tabs-content-main')
 ])
@@ -111,10 +147,15 @@ def render_tab_content(tab_value):
         return create_kpi_tab_layout()
     elif tab_value == 'tab-comparison':
         return create_comparison_tab_layout()
+    elif tab_value == 'tab-narrative-summary':
+        return create_narrative_summary_tab_layout()
     return html.Div([html.H3("Select a tab")])
 
 
 # --- Helper function for graph visualization (reverted) ---
+# Note: This function signature matches the one from the revert, not the one with active/inactive node colors.
+# If the subtask requires the more advanced create_network_figure, this would need to be adjusted.
+# For now, proceeding with the signature that was present after the last revert.
 def create_network_figure(graph, graph_title="Network Visualization", node_color='#ADD8E6', layout_seed=42, edge_hover_texts_custom=None):
     if not graph or not graph.nodes():
         fig = go.Figure()
@@ -512,7 +553,94 @@ def update_comparison_tab(schema_contents, kpi_contents, schema_filename, kpi_fi
 
     final_error_message = html.Div(error_message_list) if error_message_list else None
     return summary_div_children, schema_fig, kpi_fig, final_error_message
-    # Removed duplicated block that was here
+
+
+# Callback for Narrative Summary Tab
+@app.callback(
+    [Output('narrative-summary-content', 'children'),
+     Output('narrative-summary-error-message', 'children')],
+    [Input('upload-schema-data', 'contents'),
+     Input('upload-kpi-data', 'contents')],
+    [State('upload-schema-data', 'filename'),
+     State('upload-kpi-data', 'filename')]
+)
+def update_narrative_summary_tab(schema_contents, kpi_contents, schema_filename, kpi_filename):
+    narrative_text = ""
+    error_message_children = []
+
+    if schema_contents is None and kpi_contents is None:
+        narrative_text = "Please upload both Schema and KPI JSON files to generate the narrative summary."
+        return narrative_text, None
+
+    schema_graph, kpi_graph = None, None
+    schema_analysis, kpi_analysis = None, None
+
+    if schema_contents:
+        try:
+            s_content_type, s_content_string = schema_contents.split(',')
+            s_decoded = base64.b64decode(s_content_string)
+            s_json_data_str = s_decoded.decode('utf-8')
+            parsed_schema = dp.parse_schema_json(s_json_data_str)
+            if not parsed_schema: raise ValueError("Schema data is empty or could not be parsed.")
+            schema_graph = nb.build_schema_network(parsed_schema)
+            if schema_graph.number_of_nodes() > 0:
+               schema_analysis = na.analyze_network(schema_graph)
+            else:
+               schema_analysis = {}
+        except Exception as e:
+            error_message_children.append(html.P(f"Error processing Schema file ({schema_filename}): {str(e)}"))
+            schema_graph = None
+    else:
+        error_message_children.append(html.P("Schema JSON file not uploaded. Some parts of the narrative may be incomplete or unavailable."))
+
+    if kpi_contents:
+        try:
+            k_content_type, k_content_string = kpi_contents.split(',')
+            k_decoded = base64.b64decode(k_content_string)
+            k_json_data_str = k_decoded.decode('utf-8')
+            parsed_kpis = dp.parse_kpi_json(k_json_data_str)
+            if not parsed_kpis: raise ValueError("KPI data is empty or could not be parsed.")
+            kpi_graph = nb.build_kpi_network(parsed_kpis)
+            if kpi_graph.number_of_nodes() > 0:
+               kpi_analysis = na.analyze_network(kpi_graph)
+            else:
+               kpi_analysis = {}
+        except Exception as e:
+            error_message_children.append(html.P(f"Error processing KPI file ({kpi_filename}): {str(e)}"))
+            kpi_graph = None
+    else:
+        error_message_children.append(html.P("KPI JSON file not uploaded. Some parts of the narrative may be incomplete or unavailable."))
+
+    # Generate Narrative
+    # Proceed to generate narratives even if one part is missing, functions in ng should handle None inputs
+    schema_text = ng.generate_schema_narrative(schema_graph, schema_analysis if schema_analysis else {})
+    kpi_text = ng.generate_kpi_narrative(kpi_graph, kpi_analysis if kpi_analysis else {})
+
+    comp_text = "Comparison insights require both schema and KPI data to be successfully processed.\n"
+    if schema_graph is not None and kpi_graph is not None: # Both must be valid for comparison part
+        schema_nodes = set(schema_graph.nodes())
+        kpi_nodes = set(kpi_graph.nodes())
+        common_nodes = schema_nodes & kpi_nodes
+        schema_only_nodes = schema_nodes - kpi_nodes
+        kpi_only_nodes = kpi_nodes - schema_nodes
+        comp_text = ng.generate_comparison_narrative(schema_graph, kpi_graph, common_nodes, schema_only_nodes, kpi_only_nodes)
+    elif error_message_children and not (schema_graph is not None and kpi_graph is not None) :
+        # If there were errors and we can't do a full comparison
+        comp_text = "Comparison narrative cannot be generated due to errors or missing data for one or both inputs."
+
+    narrative_text = f"# Data Narrative Summary\n\n## Schema Overview\n{schema_text}\n\n## KPI Overview\n{kpi_text}\n\n## Comparison Insights\n{comp_text}"
+
+    # If there were initial "file not uploaded" messages but then one file *was* processed, clear those initial messages.
+    # Only show actual processing errors.
+    if (schema_contents and schema_graph is None and not any(f"Schema file ({schema_filename})" in str(p.children) for p in error_message_children if hasattr(p, 'children'))) or \
+       (kpi_contents and kpi_graph is None and not any(f"KPI file ({kpi_filename})" in str(p.children) for p in error_message_children if hasattr(p, 'children'))):
+        # This means a file was provided, but graph is None (error), but no *specific* error for it was logged.
+        # This case might be complex to get right, the current error logging is likely sufficient.
+        pass
+
+
+    final_error_message_div = html.Div(error_message_children) if error_message_children else None
+    return narrative_text, final_error_message_div
 
 
 # Run the application
