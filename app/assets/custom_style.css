@@ -9,12 +9,11 @@ body {
     display: flex;
     align-items: center; /* Vertically align logo and title */
     padding: 10px 20px; /* Padding around the header content */
-    /* The Darkly theme provides a dark background.
-       If specific overrides are needed, they can be added here,
-       but it's often better to let the theme handle it.
-       Example: background-color: #282c34;
+    /* The Minty theme provides a light background.
+       Explicit background-color for header is removed to use theme's default.
+       Example if needed: background-color: #f8f9fa;
     */
-    /* border-bottom: 1px solid #444; /* Optional: a subtle separator */
+    border-bottom: 1px solid #dee2e6; /* Lighter border for Minty theme */
 }
 
 #logo-img {
@@ -24,11 +23,10 @@ body {
 }
 
 .app-header h1 {
-    /* The Darkly theme will make H1 text light.
-       The existing app_title_style in app.py might set text-align and color.
-       If app_title_style color is dark (e.g., #007BFF), it will need to be
-       removed or overridden here for visibility on a dark theme.
-       For now, we assume app_title_style is compatible or will be adjusted.
+    /* The app_title_style in app.py sets color to #007BFF which is visible on Minty.
+       Other styles like text-align are also handled there.
+       CSS color override is not strictly needed unless app_title_style is changed.
+       Example: color: #333;
     */
     font-size: 1.8rem; /* Responsive font size */
     margin-top: 0; /* Remove or adjust top margin if H1 is the first child */
@@ -36,9 +34,9 @@ body {
     font-weight: 500; /* A common weight for titles */
 }
 
-/* Ensure upload components are visible on dark theme if default styling is problematic */
-/* This is often handled well by DBC themes, but good to keep in mind. */
+/* .dash-upload styling examples for dark themes can be removed or kept commented */
+/* Minty theme should handle upload component styling adequately. */
 .dash-upload {
-    /* Example: border: 1px dashed #555; */
-    /* background-color: rgba(255, 255, 255, 0.05); */
+    /* Example: border: 1px dashed #ccc; */ /* Lighter dash for light themes if needed */
+    /* background-color: #fdfdfd; */
 }

@@ -194,11 +194,11 @@ Once files are uploaded, the application will populate the analysis tabs:
         *   Interpretation: Use this narrative as a starting point for understanding your data landscape. The insights can guide further investigation into data governance, KPI readiness, and data utilization.
 
 #### Theme and Logo
-*   This application uses the **'Darkly'** theme from Dash Bootstrap Components for its visual styling, providing a modern, dark interface.
+*   This application uses the **'Minty'** theme from Dash Bootstrap Components for its visual styling, providing a modern, light interface.
 *   To display your custom logo in the header:
     1.  Ensure an `assets` folder exists inside the `app` directory (i.e., `app/assets/`). If not, create it.
-    2.  Place your logo file named `logo.png` into this `app/assets/` directory.
-    3.  The application is configured to automatically load `logo.png` from this location.
+    2.  Place your logo file named `logo.jpg` into this `app/assets/` directory.
+    3.  The application is configured to automatically load `logo.jpg` from this location.
     4.  You can adjust the logo's appearance (e.g., default height of 50px) by modifying the `#logo-img` styles in the `app/assets/custom_style.css` file.
 
 ## Troubleshooting

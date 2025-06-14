@@ -33,7 +33,7 @@ from app.src import narrative_generator as ng
 app = dash.Dash(
     __name__,
     suppress_callback_exceptions=True,
-    external_stylesheets=[dbc.themes.DARKLY] # Added theme
+    external_stylesheets=[dbc.themes.MINTY] # Changed theme to MINTY
 )
 app.title = "Data Readiness Scorecard"
 
@@ -100,7 +100,7 @@ def create_narrative_summary_tab_layout():
 # Define the application layout
 app.layout = html.Div([
     html.Div(className='app-header', children=[ # New header div
-        html.Img(id='logo-img', src=app.get_asset_url('logo.png'), style={'height':'50px', 'marginRight':'15px', 'verticalAlign':'middle'}), # Basic logo style
+        html.Img(id='logo-img', src=app.get_asset_url('logo.jpg'), style={'height':'50px', 'marginRight':'15px', 'verticalAlign':'middle'}), # Changed to logo.jpg
         html.H1("Data Readiness Scorecard", style={**app_title_style, 'display':'inline-block', 'verticalAlign':'middle'}) # Moved H1, adjusted style for inline
     ], style={'display':'flex', 'alignItems':'center', 'justifyContent':'center', 'marginBottom': '20px'}), # Header div style
 
