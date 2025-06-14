@@ -184,6 +184,16 @@ Once files are uploaded, the application will populate the analysis tabs:
         *   Missing tables in your schema definition.
         *   Typos in table names in either file.
         *   KPIs relying on data sources not yet formally documented in the schema.
+
+      Below the side-by-side comparison, a **Combined Network View** is also displayed. This graph shows:
+      *   **All nodes** from both the schema and KPI networks, laid out consistently with the views above.
+      *   **All edges** from both the schema network and the KPI network.
+      *   **Node Color Coding**:
+          *   Nodes **common** to both schema and KPI networks are colored **purple**.
+          *   Nodes **unique to the schema** network are colored based on the schema network's specific color (typically light blue).
+          *   Nodes **unique to the KPI** network are colored based on the KPI network's specific color (typically light pink).
+      *   **Edges** in this combined view are a neutral color, helping to visualize overall connectivity.
+      This combined view helps in understanding the complete data landscape, including how schema-only and KPI-only tables relate to the common core through shared connections.
     *   **Narrative Summary Tab:**
         *   Purpose: Provides an automated textual summary of the schema network, KPI network, and key comparisons between them. This helps in quickly understanding the main characteristics and potential insights from the uploaded data.
         *   How to Use: After uploading both the Schema JSON and KPI JSON files, navigate to this tab. The narrative will be automatically generated.
